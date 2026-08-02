@@ -20,7 +20,7 @@ static int prev_y = -1;
 
 int main(void) {
     SetConfigFlags(FLAG_WINDOW_HIGHDPI);
-    InitWindow(WIDTH, HEIGHT, "MechBox2D");
+    InitWindow(WIDTH, HEIGHT, "cSand");
     SetTargetFPS(FPS);
 
     while (!WindowShouldClose()) {
@@ -99,11 +99,43 @@ int main(void) {
 
                 int new_row = row + (int)particles[row][col];
 
-                if (new_row >= P_ARR_H)
-                    new_row = P_ARR_H - 1;
+                if (row + 1 < P_ARR_H && particles[row + 1][col] != 0) {
+                    int new_col = col;
 
-                particles[new_row][col] = particles[row][col];
-                particles[row][col] = 0;
+                    if (col - 1 >= 0 && particles[row + 1][col - 1] == 0)
+                        new_col = col - 1;
+                    else if (col + 1 < P_ARR_W && particles[row + 1][col + 1] == 0)
+                        new_col = col + 1;
+
+                    if (new_col != col) {
+                        particles[row + 1][new_col] = particles[row][col];
+                        particles[row][col] = 0;
+                    }
+                }
+
+                else if (new_row >= P_ARR_H || particles[new_row][col] != 0) {
+                    for (int i = row + 1; i < P_ARR_H; i++) {
+                        if (particles[i][col] != 0) {
+                            if (i-1 != row) {
+                                particles[i-1][col] = particles[row][col];
+                                particles[row][col] = 0;
+                            }
+                            break;
+                        }
+
+                        else if (i + 1 == P_ARR_H) {
+                            particles[i][col] = particles[row][col];
+                            particles[row][col] = 0;
+                            break;
+                        }
+                    }
+                }
+
+                else {
+                    particles[new_row][col] = particles[row][col];
+                    particles[row][col] = 0;
+                }
+
             }
         }
 

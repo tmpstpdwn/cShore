@@ -1,5 +1,5 @@
 project(
-  'MechBox2D',
+  'cSand',
   'c',
   version: '1.0.0',
   default_options: [
@@ -37,7 +37,7 @@ sources = files(
 )
 
 executable(
-  'MechBox2D',
+  'cSand',
   sources,
   dependencies: raylib,
   include_directories: include_directories('include'),
