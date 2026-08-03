@@ -4,8 +4,9 @@ A really basic sand simulation in C & Raylib.
 
 ## Controls
 
-- `LEFT MOUSE BUTTON` : Used to draw by dragging the mouse with the button pressed.
-- `RIGHT MOUSE BUTTON` : Let the simulation run with a simple button click.
+- `LEFT MOUSE BUTTON`  : Used to draw the current particle by dragging the mouse with the button pressed.
+- `MOUSE SCROLL WHEEL` : Used to change currently selected particle type.
+- `CTRL + L` : Delete all particles at once.    
 
 ## Build
 
