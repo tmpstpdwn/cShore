@@ -2,6 +2,10 @@
 
 A really basic sand simulation in C & Raylib.
 
+## Screenshot
+
+![image](./media/cSand.png)
+
 ## Controls
 
 - `MOUSE SCROLL WHEEL`        : Used to change currently selected particle type.
