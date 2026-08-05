@@ -4,9 +4,11 @@ A really basic sand simulation in C & Raylib.
 
 ## Controls
 
-- `LEFT MOUSE BUTTON`  : Used to draw the current particle by dragging the mouse with the button pressed.
-- `MOUSE SCROLL WHEEL` : Used to change currently selected particle type.
-- `CTRL + L` : Delete all particles at once.    
+- `MOUSE SCROLL WHEEL`        : Used to change currently selected particle type.
+- `CTRL + MOUSE SCROLL WHEEL` : Used to change the marker size.
+- `LEFT MOUSE BUTTON`         : Used to draw the current particle.
+- `RIGHT MOUSE BUTTON`        : Pause / Resume simulation.
+- `CTRL + L`                  : Delete all particles at once.    
 
 ## Build
 
@@ -29,4 +31,3 @@ meson compile -C build
 ## LICENSE
 
 `EMPTY`
-

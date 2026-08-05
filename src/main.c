@@ -1,39 +1,68 @@
-#include "raylib.h"
 #include <stdlib.h>
 
-#define FPS 60
-
-#define SPEED 1
+#include "raylib.h"
 
 #define HEIGHT 600
 #define WIDTH 800
+#define FPS 60
 
 // Particle square dimensions.
 #define P_DIM 5
+
 // Width and Height of the particle grid.
 #define P_ARR_H (HEIGHT / P_DIM)
 #define P_ARR_W (WIDTH / P_DIM)
 
+#define PARTICLE_COUNT 3
+#define COLORS_PER_P_TYPE 4
+
+// Marker dimension limits in grid cells.
+#define MARKER_MIN_SIZE 1
+#define MARKER_MAX_SIZE 20
+
 typedef enum {
     NONE,
     SAND,
-    WALL,
-    PARTICLES, // Count.
+    WALL
 } ParticleType;
 
-static ParticleType particles[P_ARR_H][P_ARR_W];
+typedef struct {
+    ParticleType type;
+    int color_index;
+} ParticleCell;
+  
+static ParticleCell particles[P_ARR_H][P_ARR_W];
+static ParticleType curr_p_type = NONE;
+
+static Color particle_colors[PARTICLE_COUNT][COLORS_PER_P_TYPE] = {
+    [SAND] = {
+        {194, 178, 128, 255},
+        {210, 180, 140, 255},
+        {180, 160, 110, 255},
+        {220, 200, 150, 255}
+    },
+    [WALL] = {
+        {170, 70, 45, 255},
+        {200, 90, 50, 255},
+        {140, 55, 40, 255},
+        {220, 110, 65, 255}
+    }
+};
+
+static int marker_r, marker_c;
+static int marker_dim = 5;
+
+// Previous row, col for the marker in the last frame.
+// Used to draw continious line on the grid.
+static int prev_marker_r = -1;
+static int prev_marker_c = -1;
+
 static bool paused = false;
-
-// Previous x, y for when the left mouse button was clicked.
-static int prev_mouse_x = -1;
-static int prev_mouse_y = -1;
-
-static ParticleType curr_particle = SAND;
 
 static void clear_particles(void) {
     for (int row = 0; row < P_ARR_H; row++) {
         for (int col = 0; col < P_ARR_W; col++) {
-            particles[row][col] = NONE;
+            particles[row][col] = (ParticleCell){NONE, 0};
         }
     }
 }
@@ -54,19 +83,20 @@ static char *get_tool_str(ParticleType tool) {
 static void set_cell(int row, int col, ParticleType tool) {
     if (col < 0 || col >= P_ARR_W || row < 0 || row >= P_ARR_H)
         return;
-    switch (tool) {
-    case NONE:
-        particles[row][col] = NONE;
-        break;
-    case SAND:
-        if (particles[row][col] == NONE)
-            particles[row][col] = SAND;
-        break;
-    case WALL:
-        if (particles[row][col] == NONE)
-            particles[row][col] = WALL;
-        break;
-    default:;
+
+    if (tool == NONE) {
+        particles[row][col] = (ParticleCell){NONE, 0};
+    } else if (particles[row][col].type == NONE) {
+        int color_index = GetRandomValue(0, COLORS_PER_P_TYPE - 1);
+        particles[row][col] = (ParticleCell){tool, color_index};
+    }
+}
+
+static void set_cells(int row, int col, int dim, ParticleType tool) {
+    for (int r = row; r < row + dim; r++) {
+        for (int c = col; c < col + dim; c ++) {
+            set_cell(r, c, tool);
+        }
     }
 }
 
@@ -81,7 +111,7 @@ static void draw_line(int from_row, int from_col, int to_row, int to_col) {
     int error = dx - dy;
 
     while (true) {
-        set_cell(from_row, from_col, curr_particle);
+        set_cells(from_row, from_col, marker_dim, curr_p_type);
 
         if (from_col == to_col && from_row == to_row)
             break;
@@ -103,76 +133,83 @@ static void draw_line(int from_row, int from_col, int to_row, int to_col) {
 static void input(void) {
     float wheel = GetMouseWheelMove();
 
+    bool ctrl_down = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+
+    int x = GetMouseX();
+    int y = GetMouseY();
+
+    int new_r = (y - (marker_dim * P_DIM) / 2) / P_DIM;
+    int new_c = (x - (marker_dim * P_DIM) / 2) / P_DIM;
+
+    if (new_c < 0) new_c = 0;
+    else if (new_c + marker_dim >= P_ARR_W) new_c = P_ARR_W - marker_dim;
+
+    if (new_r < 0) new_r = 0;
+    else if (new_r + marker_dim >= P_ARR_H) new_r = P_ARR_H - marker_dim;
+
+    marker_r = new_r;
+    marker_c = new_c;
+
     if (wheel > 0) {
-        curr_particle = (curr_particle + 1) % PARTICLES;
+        if (ctrl_down) {
+            if (marker_dim < MARKER_MAX_SIZE) marker_dim++;
+        } else {
+            if (curr_p_type + 1 < PARTICLE_COUNT) curr_p_type++;
+        }
     } else if (wheel < 0) {
-        curr_particle = (curr_particle == 0) ? PARTICLES - 1 : curr_particle - 1;
+        if (ctrl_down) {
+            if (marker_dim > MARKER_MIN_SIZE) marker_dim--;
+        } else {
+            if ((int)curr_p_type - 1 >= NONE) curr_p_type--;
+        }
     }
 
-    if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_L))
+    if (ctrl_down && IsKeyPressed(KEY_L))
         clear_particles();
 
-    if (IsKeyPressed(KEY_P))
+    if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
         paused = !paused;
 
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        int x = GetMouseX();
-        int y = GetMouseY();
-
-        int col = x / P_DIM;
-        int row = y / P_DIM;
-
-        if (prev_mouse_x == -1 || prev_mouse_y == -1) {
-            set_cell(row, col, curr_particle);
+        if (prev_marker_c == -1 || prev_marker_r == -1) {
+            set_cells(marker_r, marker_c, marker_dim, curr_p_type);
         } else {
-            int prev_col = prev_mouse_x / P_DIM;
-            int prev_row = prev_mouse_y / P_DIM;
-            draw_line(prev_row, prev_col, row, col);
+            draw_line(prev_marker_r, prev_marker_c, marker_r, marker_c);
         }
-
-        prev_mouse_x = x;
-        prev_mouse_y = y;
+        prev_marker_r = marker_r;
+        prev_marker_c = marker_c;
     } else {
-        prev_mouse_x = -1;
-        prev_mouse_y = -1;
+        prev_marker_r = -1;
+        prev_marker_c = -1;
     }
 }
 
 static void sim_particle(int row, int col) {
-    if (particles[row][col] != SAND) return;
+    if (particles[row][col].type != SAND) return;
 
     // When cant move straight down.
-    if (row + 1 < P_ARR_H && particles[row + 1][col] != NONE) {
+    if (row + 1 < P_ARR_H && particles[row + 1][col].type != NONE) {
         int new_col = col;
 
-        if (col - 1 >= 0 && particles[row][col - 1] == NONE &&
-            particles[row + 1][col - 1] == NONE)
+        if (col - 1 >= 0 && particles[row][col - 1].type == NONE &&
+            particles[row + 1][col - 1].type == NONE)
             new_col = col - 1;
         else if (col + 1 < P_ARR_W &&
-                 particles[row][col + 1] == NONE &&
-                 particles[row + 1][col + 1] == NONE)
+                 particles[row][col + 1].type == NONE &&
+                 particles[row + 1][col + 1].type == NONE)
             new_col = col + 1;
 
         if (new_col != col) {
-            particles[row + 1][new_col] = SAND;
-            particles[row][col] = NONE;
+            particles[row + 1][new_col] = particles[row][col];
+            particles[row][col] = (ParticleCell){NONE, 0};
         }
     }
 
     else { // Particle free fall.
-        int new_row = row + SPEED;
-        new_row = (new_row >= P_ARR_H) ? P_ARR_H - 1 : new_row;
-
-        for (int i = row; i <= new_row; i++) {
-            if (i == new_row || (i + 1 < new_row && particles[i + 1][col] != NONE)) {
-                if (i != row) {
-                    particles[i][col] = SAND;
-                    particles[row][col] = NONE;
-                }
-                break;
-            }
+        if (row + 1 < P_ARR_H && particles[row + 1][col].type == NONE) {
+            particles[row + 1][col] = particles[row][col]; // Inc pos by 1.
+            particles[row][col] = (ParticleCell){NONE, 0};
         }
-
     }
 }
 
@@ -180,16 +217,10 @@ static void draw_particle(int row, int col) {
     int x = col * P_DIM;
     int y = row * P_DIM;
 
-    switch (particles[row][col]) {
-        case NONE:
-            break;
-        case SAND:
-            DrawRectangle(x, y, P_DIM, P_DIM, (Color){226, 202, 118, 255});    
-            break;
-        case WALL:
-            DrawRectangle(x, y, P_DIM, P_DIM, (Color){120, 120, 120, 255});
-            break;
-        default:;
+    ParticleCell pc = particles[row][col];
+
+    if (pc.type != NONE) {
+        DrawRectangle(x, y, P_DIM, P_DIM, particle_colors[pc.type][pc.color_index]);    
     }
 }
 
@@ -205,20 +236,22 @@ static void simulate(void) {
 static void draw(void) {
     BeginDrawing();
 
-    DrawRectangle(0, 0, WIDTH, HEIGHT / 3,
-                  (Color){170, 220, 255, 255});
-    DrawRectangle(0, HEIGHT / 3, WIDTH, HEIGHT / 3,
-                  (Color){120, 190, 250, 255});
-    DrawRectangle(0, 2 * HEIGHT / 3, WIDTH, HEIGHT / 3,
-                  (Color){70, 140, 220, 255});
+    DrawRectangle(0, 0, WIDTH, HEIGHT, (Color){170, 220, 255, 255});
 
-    for (int row = P_ARR_H - 1; row >= 0; row--) {
-        for (int col = P_ARR_W - 1; col >= 0; col--) {
+    for (int row = 0; row < P_ARR_H; row++) {
+        for (int col = 0; col < P_ARR_W; col++) {
             draw_particle(row, col);
         }
     }
 
-    DrawText(get_tool_str(curr_particle), 0, 0, 30, RED);
+    DrawText(TextFormat("%s %s", "TOOL:", get_tool_str(curr_p_type)), 10, 10, 20, BLACK);
+    DrawText(TextFormat("%s %d", "TOOL SIZE:", marker_dim), 10, 30, 20, BLACK);
+
+    if (paused)
+        DrawText("PAUSED", 705, 10, 20, RED);
+
+    DrawRectangleLines(marker_c * P_DIM, marker_r * P_DIM, marker_dim * P_DIM, marker_dim * P_DIM, BLACK);
+
     EndDrawing();
 }
 
@@ -226,6 +259,7 @@ int main(void) {
     SetConfigFlags(FLAG_WINDOW_HIGHDPI);
     InitWindow(WIDTH, HEIGHT, "cSand");
     SetTargetFPS(FPS);
+    HideCursor();
 
     while (!WindowShouldClose()) {
         input();
