@@ -247,6 +247,10 @@ static void sim_particle(int row, int col, ParticleType type) {
             } else if (right_col) {
                 new_col = col + 1;
             }
+
+            if ((new_col == col - 1 && left_col_next_row) || (new_col == col + 1 && right_col_next_row)) {
+                new_row = row + 1;
+            }
         }
 
         if (new_row != row || new_col != col) {
