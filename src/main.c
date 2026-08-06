@@ -13,7 +13,7 @@
 #define P_ARR_H (HEIGHT / P_DIM)
 #define P_ARR_W (WIDTH / P_DIM)
 
-#define PARTICLE_COUNT 3
+#define PARTICLE_COUNT 4
 #define COLORS_PER_P_TYPE 4
 
 // Marker dimension limits in grid cells.
@@ -23,6 +23,7 @@
 typedef enum {
     NONE,
     SAND,
+    WATER,
     WALL
 } ParticleType;
 
@@ -35,11 +36,23 @@ static ParticleCell particles[P_ARR_H][P_ARR_W];
 static ParticleType curr_p_type = NONE;
 
 static Color particle_colors[PARTICLE_COUNT][COLORS_PER_P_TYPE] = {
+    [NONE] = {
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+    },
     [SAND] = {
         {194, 178, 128, 255},
         {210, 180, 140, 255},
         {180, 160, 110, 255},
         {220, 200, 150, 255}
+    },
+    [WATER] = {
+        {  0, 168, 232, 255 },
+        {  0, 145, 199, 255 },
+        {  0, 119, 182, 255 },
+        {  72, 202, 228, 255 }
     },
     [WALL] = {
         {170, 70, 45, 255},
@@ -67,35 +80,34 @@ static void clear_particles(void) {
     }
 }
 
-static char *get_tool_str(ParticleType tool) {
-    switch (tool) {
+static char *get_type_str(ParticleType type) {
+    switch (type) {
     case NONE:
         return "ERASE";
     case SAND:
         return "SAND";
+    case WATER:
+        return "WATER";
     case WALL:
         return "WALL";
     default:
-        return "";
+        return "OOHLALA!";
     }
 }
 
-static void set_cell(int row, int col, ParticleType tool) {
-    if (col < 0 || col >= P_ARR_W || row < 0 || row >= P_ARR_H)
-        return;
+// Paint a square patch of side length `size` with particles of `type`.
+static void paint_particles(int row, int col, int size, ParticleType type) {
+    for (int r = row; r < row + size; r++) {
+        for (int c = col; c < col + size; c++) {
+            if (c < 0 || c >= P_ARR_W || r < 0 || r >= P_ARR_H)
+                continue;
 
-    if (tool == NONE) {
-        particles[row][col] = (ParticleCell){NONE, 0};
-    } else if (particles[row][col].type == NONE) {
-        int color_index = GetRandomValue(0, COLORS_PER_P_TYPE - 1);
-        particles[row][col] = (ParticleCell){tool, color_index};
-    }
-}
-
-static void set_cells(int row, int col, int dim, ParticleType tool) {
-    for (int r = row; r < row + dim; r++) {
-        for (int c = col; c < col + dim; c ++) {
-            set_cell(r, c, tool);
+            if (type == NONE) {
+                particles[r][c] = (ParticleCell){ NONE, 0 };
+            } else if (particles[r][c].type == NONE) {
+                int color_index = GetRandomValue(0, COLORS_PER_P_TYPE - 1);
+                particles[r][c] = (ParticleCell){ type, color_index };
+            }
         }
     }
 }
@@ -111,7 +123,7 @@ static void draw_line(int from_row, int from_col, int to_row, int to_col) {
     int error = dx - dy;
 
     while (true) {
-        set_cells(from_row, from_col, marker_dim, curr_p_type);
+        paint_particles(from_row, from_col, marker_dim, curr_p_type);
 
         if (from_col == to_col && from_row == to_row)
             break;
@@ -172,7 +184,7 @@ static void input(void) {
 
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
         if (prev_marker_c == -1 || prev_marker_r == -1) {
-            set_cells(marker_r, marker_c, marker_dim, curr_p_type);
+            paint_particles(marker_r, marker_c, marker_dim, curr_p_type);
         } else {
             draw_line(prev_marker_r, prev_marker_c, marker_r, marker_c);
         }
@@ -184,33 +196,65 @@ static void input(void) {
     }
 }
 
-static void sim_particle(int row, int col) {
-    if (particles[row][col].type != SAND) return;
+static void sim_particle(int row, int col, ParticleType type) {
+    if (row + 1 >= P_ARR_H) return;
 
-    // When cant move straight down.
-    if (row + 1 < P_ARR_H && particles[row + 1][col].type != NONE) {
+    // Free fall.
+    if (particles[row + 1][col].type == NONE) {
+        particles[row + 1][col] = particles[row][col]; // Inc pos by 1.
+        particles[row][col] = (ParticleCell){NONE, 0};
+    }
+
+    // When can't move straight down.
+    else {
+        int new_row = row;
         int new_col = col;
 
-        if (col - 1 >= 0 && particles[row][col - 1].type == NONE &&
-            particles[row + 1][col - 1].type == NONE)
-            new_col = col - 1;
-        else if (col + 1 < P_ARR_W &&
-                 particles[row][col + 1].type == NONE &&
-                 particles[row + 1][col + 1].type == NONE)
-            new_col = col + 1;
+        bool left_col = col - 1 >= 0 && particles[row][col - 1].type == NONE;
+        bool right_col = col + 1 < P_ARR_W && particles[row][col + 1].type == NONE;
 
-        if (new_col != col) {
-            particles[row + 1][new_col] = particles[row][col];
+        bool left_col_next_row = left_col && particles[row + 1][col - 1].type == NONE;
+        bool right_col_next_row = right_col && particles[row + 1][col + 1].type == NONE;
+
+        if (type == SAND) {
+            if (left_col_next_row && right_col_next_row) {
+                new_row = row + 1;
+                if (GetRandomValue(0, 10) < 5) {
+                    new_col = col - 1;
+                } else {
+                    new_col = col + 1;
+                }
+            }
+            else if (left_col_next_row) {
+                new_row = row + 1;
+                new_col = col - 1;
+            }
+            else if (right_col_next_row) {
+                new_row = row + 1;
+                new_col = col + 1;
+            }
+        }
+
+        else if (type == WATER) {
+            if (left_col && right_col) {
+                if (GetRandomValue(0, 10) < 5) {
+                    new_col = col - 1;
+                } else {
+                    new_col = col + 1;
+                }
+            } else if (left_col) {
+                new_col = col - 1;
+            } else if (right_col) {
+                new_col = col + 1;
+            }
+        }
+
+        if (new_row != row || new_col != col) {
+            particles[new_row][new_col] = particles[row][col];
             particles[row][col] = (ParticleCell){NONE, 0};
         }
     }
 
-    else { // Particle free fall.
-        if (row + 1 < P_ARR_H && particles[row + 1][col].type == NONE) {
-            particles[row + 1][col] = particles[row][col]; // Inc pos by 1.
-            particles[row][col] = (ParticleCell){NONE, 0};
-        }
-    }
 }
 
 static void draw_particle(int row, int col) {
@@ -226,11 +270,22 @@ static void draw_particle(int row, int col) {
 
 static void simulate(void) {
     if (paused) return;
+
+    // Flip direction every frame.
+    static int dir = -1;
+
     for (int row = P_ARR_H - 1; row >= 0; row--) {
-        for (int col = P_ARR_W - 1; col >= 0; col--) {
-            sim_particle(row, col);
+        int col_start = (dir == -1)? P_ARR_W - 1: 0;
+        int col_end = (dir == -1)? 0: P_ARR_W - 1;
+        col_end += dir;
+        for (int col = col_start; col != col_end; col += dir) {
+            ParticleType pt = particles[row][col].type;
+            if (pt == NONE || pt == WALL) continue;
+            sim_particle(row, col, pt);
         }
     }
+
+    dir = (dir == -1)? 1: -1;
 }
 
 static void draw(void) {
@@ -244,7 +299,7 @@ static void draw(void) {
         }
     }
 
-    DrawText(TextFormat("%s %s", "TOOL:", get_tool_str(curr_p_type)), 10, 10, 20, BLACK);
+    DrawText(TextFormat("%s %s", "TOOL:", get_type_str(curr_p_type)), 10, 10, 20, BLACK);
     DrawText(TextFormat("%s %d", "TOOL SIZE:", marker_dim), 10, 30, 20, BLACK);
 
     if (paused)
@@ -257,7 +312,7 @@ static void draw(void) {
 
 int main(void) {
     SetConfigFlags(FLAG_WINDOW_HIGHDPI);
-    InitWindow(WIDTH, HEIGHT, "cSand");
+    InitWindow(WIDTH, HEIGHT, "cShore");
     SetTargetFPS(FPS);
     HideCursor();
 

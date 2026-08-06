@@ -1,10 +1,10 @@
-# cSand
+# cShore
 
-A really basic sand simulation in C & Raylib.
+A really basic beach themed cellular automaton featuring sand, water and other elements, written in C & Raylib.
 
 ## Screenshot
 
-![image](./media/cSand.png)
+![image](./media/cShore.png)
 
 ## Controls
 
@@ -20,8 +20,8 @@ A really basic sand simulation in C & Raylib.
 - `Raylib` is provided as a git submodule.
 
 ```bash
-git clone --recursive https://github.com/tmpstpdwn/cSand
-cd cSand
+git clone --recursive https://github.com/tmpstpdwn/cShore
+cd cShore
 meson setup build --buildtype=release
 meson compile -C build
 ```
@@ -29,9 +29,9 @@ meson compile -C build
 ## Run
 
 ```bash
-./build/cSand
+./build/cShore
 ```
 
 ## LICENSE
 
-`EMPTY`
+[MIT LICENSE](LICENSE)

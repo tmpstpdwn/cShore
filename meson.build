@@ -1,5 +1,5 @@
 project(
-  'cSand',
+  'cShore',
   'c',
   version: '1.0.0',
   default_options: [
@@ -37,7 +37,7 @@ sources = files(
 )
 
 executable(
-  'cSand',
+  'cShore',
   sources,
   dependencies: raylib,
   include_directories: include_directories('include'),
