@@ -49,10 +49,10 @@ static Color particle_colors[PARTICLE_COUNT][COLORS_PER_P_TYPE] = {
         {220, 200, 150, 255}
     },
     [WATER] = {
-        {  0, 168, 232, 255 },
-        {  0, 145, 199, 255 },
-        {  0, 119, 182, 255 },
-        {  72, 202, 228, 255 }
+        {0, 168, 232, 255},
+        {0, 145, 199, 255},
+        {0, 119, 182, 255},
+        {72, 202, 228, 255}
     },
     [WALL] = {
         {170, 70, 45, 255},
@@ -198,27 +198,22 @@ static void input(void) {
 
 static void sim_particle(int row, int col, ParticleType type) {
     if (row + 1 >= P_ARR_H) return;
+    if (type == NONE || type == WALL) return;
 
-    // Free fall.
+    int new_row = row;
+    int new_col = col;
+
+    bool left_col = col - 1 >= 0 && particles[row][col - 1].type == NONE;
+    bool right_col = col + 1 < P_ARR_W && particles[row][col + 1].type == NONE;
+
+    bool left_col_next_row = left_col && particles[row + 1][col - 1].type == NONE;
+    bool right_col_next_row = right_col && particles[row + 1][col + 1].type == NONE;
+
     if (particles[row + 1][col].type == NONE) {
-        particles[row + 1][col] = particles[row][col]; // Inc pos by 1.
-        particles[row][col] = (ParticleCell){NONE, 0};
-    }
+        new_row = row + 1;
 
-    // When can't move straight down.
-    else {
-        int new_row = row;
-        int new_col = col;
-
-        bool left_col = col - 1 >= 0 && particles[row][col - 1].type == NONE;
-        bool right_col = col + 1 < P_ARR_W && particles[row][col + 1].type == NONE;
-
-        bool left_col_next_row = left_col && particles[row + 1][col - 1].type == NONE;
-        bool right_col_next_row = right_col && particles[row + 1][col + 1].type == NONE;
-
-        if (type == SAND) {
+        if (GetRandomValue(0, 10) < 1) {
             if (left_col_next_row && right_col_next_row) {
-                new_row = row + 1;
                 if (GetRandomValue(0, 10) < 5) {
                     new_col = col - 1;
                 } else {
@@ -226,39 +221,55 @@ static void sim_particle(int row, int col, ParticleType type) {
                 }
             }
             else if (left_col_next_row) {
-                new_row = row + 1;
                 new_col = col - 1;
             }
             else if (right_col_next_row) {
-                new_row = row + 1;
                 new_col = col + 1;
             }
-        }
+        }        
+    }
 
-        else if (type == WATER) {
-            if (left_col && right_col) {
-                if (GetRandomValue(0, 10) < 5) {
-                    new_col = col - 1;
-                } else {
-                    new_col = col + 1;
-                }
-            } else if (left_col) {
+    else if (type == SAND) {
+        if (left_col_next_row && right_col_next_row) {
+            new_row = row + 1;
+            if (GetRandomValue(0, 10) < 5) {
                 new_col = col - 1;
-            } else if (right_col) {
+            } else {
                 new_col = col + 1;
             }
-
-            if ((new_col == col - 1 && left_col_next_row) || (new_col == col + 1 && right_col_next_row)) {
-                new_row = row + 1;
-            }
         }
-
-        if (new_row != row || new_col != col) {
-            particles[new_row][new_col] = particles[row][col];
-            particles[row][col] = (ParticleCell){NONE, 0};
+        else if (left_col_next_row) {
+            new_row = row + 1;
+            new_col = col - 1;
+        }
+        else if (right_col_next_row) {
+            new_row = row + 1;
+            new_col = col + 1;
         }
     }
 
+    else if (type == WATER) {
+        if (left_col && right_col) {
+            if (GetRandomValue(0, 10) < 5) {
+                new_col = col - 1;
+            } else {
+                new_col = col + 1;
+            }
+        } else if (left_col) {
+            new_col = col - 1;
+        } else if (right_col) {
+            new_col = col + 1;
+        }
+
+        if ((new_col == col - 1 && left_col_next_row) || (new_col == col + 1 && right_col_next_row)) {
+            new_row = row + 1;
+        }
+    }
+
+    if (new_row != row || new_col != col) {
+        particles[new_row][new_col] = particles[row][col];
+        particles[row][col] = (ParticleCell){NONE, 0};
+    }
 }
 
 static void draw_particle(int row, int col) {
@@ -284,7 +295,6 @@ static void simulate(void) {
         col_end += dir;
         for (int col = col_start; col != col_end; col += dir) {
             ParticleType pt = particles[row][col].type;
-            if (pt == NONE || pt == WALL) continue;
             sim_particle(row, col, pt);
         }
     }
