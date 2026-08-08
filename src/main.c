@@ -49,10 +49,10 @@ static Color particle_colors[PARTICLE_COUNT][COLORS_PER_P_TYPE] = {
         {220, 200, 150, 255}
     },
     [WATER] = {
-        {0, 168, 232, 255},
-        {0, 145, 199, 255},
-        {0, 119, 182, 255},
-        {72, 202, 228, 255}
+        {45, 155, 210, 255},
+        {40, 150, 205, 255},
+        {35, 145, 200, 255},
+        {30, 140, 195, 255}
     },
     [WALL] = {
         {170, 70, 45, 255},
@@ -264,11 +264,22 @@ static void sim_particle(int row, int col, ParticleType type) {
         if ((new_col == col - 1 && left_col_next_row) || (new_col == col + 1 && right_col_next_row)) {
             new_row = row + 1;
         }
+
+        if (new_col == col && new_row == row) {
+            if (GetRandomValue(0, (row + col) * 10) == 0) {
+                int temp_row = row + GetRandomValue(-1, 1);
+                int temp_col = col + GetRandomValue(-1, 1);
+
+                if (temp_row != row && temp_col != col && particles[temp_row][temp_col].type == WATER)
+                    new_row = temp_row, new_col = temp_col;
+            }
+        }
     }
 
     if (new_row != row || new_col != col) {
+        ParticleCell temp_cell = particles[new_row][new_col];
         particles[new_row][new_col] = particles[row][col];
-        particles[row][col] = (ParticleCell){NONE, 0};
+        particles[row][col] = temp_cell;
     }
 }
 
