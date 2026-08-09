@@ -1,6 +1,6 @@
 # cShore
 
-A really basic beach themed cellular automaton featuring sand, water and other elements, written in C & Raylib.
+A really basic beach themed cellular automata featuring sand, water and other elements, written in C & Raylib.
 
 ## Screenshot
 
