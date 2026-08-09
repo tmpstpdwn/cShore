@@ -212,7 +212,7 @@ static void sim_particle(int row, int col, ParticleType type) {
     if (particles[row + 1][col].type == NONE) {
         new_row = row + 1;
 
-        if (GetRandomValue(0, 10) < 1) {
+        if (GetRandomValue(0, 10) < 5) {
             if (left_col_next_row && right_col_next_row) {
                 if (GetRandomValue(0, 10) < 5) {
                     new_col = col - 1;
@@ -255,10 +255,23 @@ static void sim_particle(int row, int col, ParticleType type) {
             } else {
                 new_col = col + 1;
             }
-        } else if (left_col) {
-            new_col = col - 1;
+        }
+
+        /*
+        If the water particle can only move left or only move right then make the move
+        only if the cell after that in the same direction is free.
+        Other wise the very next frame, the particle will move to where it
+        started resulting in an oscillating behavior.
+        Which, if happens when an entire blob of water is trying to settle,
+        will make the whole blob oscillate left and right.
+        Doesn't look good. 
+        */
+        else if (left_col) {
+            if ((col - 2 >= 0 && particles[row][col - 2].type == NONE) || left_col_next_row)
+                new_col = col - 1;
         } else if (right_col) {
-            new_col = col + 1;
+            if ((col + 2 < P_ARR_W && particles[row][col + 2].type == NONE) || right_col_next_row)
+                new_col = col + 1;
         }
 
         if ((new_col == col - 1 && left_col_next_row) || (new_col == col + 1 && right_col_next_row)) {
@@ -266,7 +279,7 @@ static void sim_particle(int row, int col, ParticleType type) {
         }
 
         if (new_col == col && new_row == row) {
-            if (GetRandomValue(0, (row + col) * 10) == 0) {
+            if (GetRandomValue(0, (row + col) * 5) == 0) {
                 int temp_row = row + GetRandomValue(-1, 1);
                 int temp_col = col + GetRandomValue(-1, 1);
 
