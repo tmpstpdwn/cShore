@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "raylib.h"
@@ -142,6 +143,8 @@ static void draw_line(int from_row, int from_col, int to_row, int to_col) {
     }
 }
 
+static void simulate(void);
+
 static void input(void) {
     float wheel = GetMouseWheelMove();
 
@@ -165,7 +168,8 @@ static void input(void) {
     if (wheel > 0) {
         if (ctrl_down) {
             if (marker_dim < MARKER_MAX_SIZE) marker_dim++;
-        } else {
+        }
+        else {
             if (curr_p_type + 1 < PARTICLE_COUNT) curr_p_type++;
         }
     } else if (wheel < 0) {
@@ -194,10 +198,15 @@ static void input(void) {
         prev_marker_r = -1;
         prev_marker_c = -1;
     }
+
+    if (paused) {
+        if (IsKeyPressed(KEY_N))
+            simulate();
+    }
 }
 
 static void sim_particle(int row, int col, ParticleType type) {
-    if (row + 1 >= P_ARR_H) return;
+    if (row < 0 || row  >= P_ARR_H || col < 0 || col >= P_ARR_W) return;
     if (type == NONE || type == WALL) return;
 
     int new_row = row;
@@ -206,10 +215,10 @@ static void sim_particle(int row, int col, ParticleType type) {
     bool left_col = col - 1 >= 0 && particles[row][col - 1].type == NONE;
     bool right_col = col + 1 < P_ARR_W && particles[row][col + 1].type == NONE;
 
-    bool left_col_next_row = left_col && particles[row + 1][col - 1].type == NONE;
-    bool right_col_next_row = right_col && particles[row + 1][col + 1].type == NONE;
+    bool left_col_next_row = row + 1 < P_ARR_H && left_col && particles[row + 1][col - 1].type == NONE;
+    bool right_col_next_row = row + 1 < P_ARR_H && right_col && particles[row + 1][col + 1].type == NONE;
 
-    if (particles[row + 1][col].type == NONE) {
+    if (row + 1 < P_ARR_H && particles[row + 1][col].type == NONE) {
         new_row = row + 1;
 
         if (GetRandomValue(0, 10) < 5) {
@@ -226,7 +235,7 @@ static void sim_particle(int row, int col, ParticleType type) {
             else if (right_col_next_row) {
                 new_col = col + 1;
             }
-        }        
+        }    
     }
 
     else if (type == SAND) {
@@ -283,7 +292,7 @@ static void sim_particle(int row, int col, ParticleType type) {
                 int temp_row = row + GetRandomValue(-1, 1);
                 int temp_col = col + GetRandomValue(-1, 1);
 
-                if (temp_row != row && temp_col != col && particles[temp_row][temp_col].type == WATER)
+                if (temp_row >= 0 && temp_row < P_ARR_H && temp_col >= 0 && temp_col < P_ARR_W && particles[temp_row][temp_col].type == WATER)
                     new_row = temp_row, new_col = temp_col;
             }
         }
@@ -308,8 +317,6 @@ static void draw_particle(int row, int col) {
 }
 
 static void simulate(void) {
-    if (paused) return;
-
     // Flip direction every frame.
     static int dir = -1;
 
@@ -318,6 +325,7 @@ static void simulate(void) {
         int col_end = (dir == -1)? 0: P_ARR_W - 1;
         col_end += dir;
         for (int col = col_start; col != col_end; col += dir) {
+
             ParticleType pt = particles[row][col].type;
             sim_particle(row, col, pt);
         }
@@ -356,7 +364,8 @@ int main(void) {
 
     while (!WindowShouldClose()) {
         input();
-        simulate();
+        if (!paused)
+            simulate();
         draw();
     }
 
