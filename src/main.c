@@ -31,6 +31,7 @@ typedef enum {
 typedef struct {
     ParticleType type;
     int color_index;
+    int last_processed;
 } ParticleCell;
   
 static ParticleCell particles[P_ARR_H][P_ARR_W];
@@ -73,10 +74,12 @@ static int prev_marker_c = -1;
 
 static bool paused = false;
 
+static int sim_frame = 0;
+
 static void clear_particles(void) {
     for (int row = 0; row < P_ARR_H; row++) {
         for (int col = 0; col < P_ARR_W; col++) {
-            particles[row][col] = (ParticleCell){NONE, 0};
+            particles[row][col] = (ParticleCell){0};
         }
     }
 }
@@ -104,10 +107,10 @@ static void paint_particles(int row, int col, int size, ParticleType type) {
                 continue;
 
             if (type == NONE) {
-                particles[r][c] = (ParticleCell){ NONE, 0 };
+                particles[r][c] = (ParticleCell){0};
             } else if (particles[r][c].type == NONE) {
                 int color_index = GetRandomValue(0, COLORS_PER_P_TYPE - 1);
-                particles[r][c] = (ParticleCell){ type, color_index };
+                particles[r][c] = (ParticleCell){ type, color_index, -1};
             }
         }
     }
@@ -202,11 +205,14 @@ static void input(void) {
     if (paused) {
         if (IsKeyPressed(KEY_N))
             simulate();
+
     }
 }
 
-static void sim_particle(int row, int col, ParticleType type) {
+static void sim_particle(int row, int col) {
     if (row < 0 || row  >= P_ARR_H || col < 0 || col >= P_ARR_W) return;
+
+    ParticleType type = particles[row][col].type;
     if (type == NONE || type == WALL) return;
 
     int new_row = row;
@@ -264,23 +270,10 @@ static void sim_particle(int row, int col, ParticleType type) {
             } else {
                 new_col = col + 1;
             }
-        }
-
-        /*
-        If the water particle can only move left or only move right then make the move
-        only if the cell after that in the same direction is free.
-        Other wise the very next frame, the particle will move to where it
-        started resulting in an oscillating behavior.
-        Which, if happens when an entire blob of water is trying to settle,
-        will make the whole blob oscillate left and right.
-        Doesn't look good. 
-        */
-        else if (left_col) {
-            if ((col - 2 >= 0 && particles[row][col - 2].type == NONE) || left_col_next_row)
-                new_col = col - 1;
+        } else if (left_col) {
+            new_col = col - 1;
         } else if (right_col) {
-            if ((col + 2 < P_ARR_W && particles[row][col + 2].type == NONE) || right_col_next_row)
-                new_col = col + 1;
+            new_col = col + 1;
         }
 
         if ((new_col == col - 1 && left_col_next_row) || (new_col == col + 1 && right_col_next_row)) {
@@ -325,13 +318,14 @@ static void simulate(void) {
         int col_end = (dir == -1)? 0: P_ARR_W - 1;
         col_end += dir;
         for (int col = col_start; col != col_end; col += dir) {
-
-            ParticleType pt = particles[row][col].type;
-            sim_particle(row, col, pt);
+            if (particles[row][col].last_processed == sim_frame) continue;
+            particles[row][col].last_processed = sim_frame;
+            sim_particle(row, col);
         }
     }
 
     dir = (dir == -1)? 1: -1;
+    sim_frame++;
 }
 
 static void draw(void) {
@@ -345,11 +339,15 @@ static void draw(void) {
         }
     }
 
-    DrawText(TextFormat("%s %s", "TOOL:", get_type_str(curr_p_type)), 10, 10, 20, BLACK);
-    DrawText(TextFormat("%s %d", "TOOL SIZE:", marker_dim), 10, 30, 20, BLACK);
+    DrawText(TextFormat("TOOL: %s", get_type_str(curr_p_type)), 10, 10, 20, BLACK);
+    DrawText(TextFormat("TOOL SIZE: %d", marker_dim), 10, 30, 20, BLACK);
+
+    const char *sim_frame_s = TextFormat("SIM FRAME: %d", sim_frame);
+    int sim_frame_x = WIDTH - MeasureText(sim_frame_s, 20) - 15;
+    DrawText(sim_frame_s, sim_frame_x, 10, 20, BLACK);
 
     if (paused)
-        DrawText("PAUSED", 705, 10, 20, RED);
+        DrawText("PAUSED", 705, 30, 20, RED);
 
     DrawRectangleLines(marker_c * P_DIM, marker_r * P_DIM, marker_dim * P_DIM, marker_dim * P_DIM, BLACK);
 
