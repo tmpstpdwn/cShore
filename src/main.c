@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "raylib.h"
@@ -264,20 +263,33 @@ static void sim_particle(int row, int col) {
     }
 
     else if (type == WATER) {
+        int steps = 3;
+        int dir = 0;
+
         if (left_col && right_col) {
-            if (GetRandomValue(0, 10) < 5) {
-                new_col = col - 1;
-            } else {
-                new_col = col + 1;
-            }
+            dir = (GetRandomValue(0, 1) == 0) ? -1 : 1;
         } else if (left_col) {
-            new_col = col - 1;
+            dir = -1;
         } else if (right_col) {
-            new_col = col + 1;
+            dir = 1;
         }
 
-        if ((new_col == col - 1 && left_col_next_row) || (new_col == col + 1 && right_col_next_row)) {
-            new_row = row + 1;
+        if (dir != 0) {
+            int current_target_col = col;
+            
+            for (int i = 1; i <= steps; i++) {
+                int next_col = col + (dir * i);
+                
+                if (next_col >= 0 && next_col < P_ARR_W && particles[row][next_col].type == NONE) {
+                    current_target_col = next_col;
+                } else {
+                    break;
+                }
+            }
+            
+            if (current_target_col != col) {
+                new_col = current_target_col;
+            }
         }
 
         if (new_col == col && new_row == row) {
